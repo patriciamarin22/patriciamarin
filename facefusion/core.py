@@ -55,7 +55,7 @@ def create_program() -> ArgumentParser:
 	apply_config_path(program)
 	sub_program = program.add_subparsers()
 	# run
-	run_command = sub_program.add_parser('run', parents = [ program ],formatter_class = program.formatter_class)
+	run_command = sub_program.add_parser('run', parents = [ program ], formatter_class = program.formatter_class)
 	add_path_args(run_command)
 	# run:misc
 	group_misc = run_command.add_argument_group('misc')
@@ -63,8 +63,11 @@ def create_program() -> ArgumentParser:
 	add_misc_args(group_misc)
 	group_misc.add_argument('--headless', help = wording.get('help.headless'), action = 'store_true', default = config.get_bool_value('misc.headless'))
 	# run:execution
-	group_execution = run_command.add_argument_group('execution')
-	add_execution_args(group_execution)
+	run_command_group_execution = run_command.add_argument_group('execution')
+	add_execution_args(run_command_group_execution)
+	# run:memory
+	run_command_group_memory = run_command.add_argument_group('memory')
+	add_memeory_args(run_command_group_memory)
 	# job-create
 	job_create_command = sub_program.add_parser('job-add-step', help = wording.get('help.job_add_step'), parents = [ program ], formatter_class = program.formatter_class)
 	job_create_command.add_argument('job_id', help = wording.get('help.job_id'), metavar = 'job_id')
@@ -78,6 +81,9 @@ def create_program() -> ArgumentParser:
 	# job-run:execution
 	job_run_command_group_execution = job_run_command.add_argument_group('execution')
 	add_execution_args(job_run_command_group_execution)
+	# job-run:memory
+	job_run_command_group_memory = job_run_command.add_argument_group('memory')
+	add_memeory_args(job_run_command_group_memory)
 	return ArgumentParser(parents = [ program ], formatter_class = program.formatter_class, add_help = True)
 
 
@@ -104,6 +110,13 @@ def add_execution_args(group : _ArgumentGroup) -> _ArgumentGroup:
 	group.add_argument('--execution-thread-count', help = wording.get('help.execution_thread_count'), type = int, default = config.get_int_value('execution.execution_thread_count', '4'), choices = facefusion.choices.execution_thread_count_range, metavar = create_metavar(facefusion.choices.execution_thread_count_range))
 	group.add_argument('--execution-queue-count', help = wording.get('help.execution_queue_count'), type = int, default = config.get_int_value('execution.execution_queue_count', '1'), choices = facefusion.choices.execution_queue_count_range, metavar = create_metavar(facefusion.choices.execution_queue_count_range))
 	job_store.register_job_keys([ 'execution_device_id', 'execution_providers', 'execution_thread_count', 'execution_queue_count' ])
+	return group
+
+
+def add_memeory_args(group : _ArgumentGroup) -> _ArgumentGroup:
+	group.add_argument('--video-memory-strategy', help = wording.get('help.video_memory_strategy'), default = config.get_str_value('memory.video_memory_strategy', 'strict'), choices = facefusion.choices.video_memory_strategies)
+	group.add_argument('--system-memory-limit', help = wording.get('help.system_memory_limit'), type = int, default = config.get_int_value('memory.system_memory_limit', '0'), choices = facefusion.choices.system_memory_limit_range, metavar = create_metavar(facefusion.choices.system_memory_limit_range))
+	job_store.register_job_keys([ 'video_memory_strategy', 'system_memory_limit' ])
 	return group
 
 
@@ -135,10 +148,10 @@ def _create_program() -> ArgumentParser:
 	#group_execution.add_argument('--execution-queue-count', help = wording.get('help.execution_queue_count'), type = int, default = config.get_int_value('execution.execution_queue_count', '1'), choices = facefusion.choices.execution_queue_count_range, metavar = create_metavar(facefusion.choices.execution_queue_count_range))
 	#job_store.register_job_keys([ 'execution_device_id', 'execution_providers', 'execution_thread_count', 'execution_queue_count' ])
 	# memory
-	group_memory = program.add_argument_group('memory')
-	group_memory.add_argument('--video-memory-strategy', help = wording.get('help.video_memory_strategy'), default = config.get_str_value('memory.video_memory_strategy', 'strict'), choices = facefusion.choices.video_memory_strategies)
-	group_memory.add_argument('--system-memory-limit', help = wording.get('help.system_memory_limit'), type = int, default = config.get_int_value('memory.system_memory_limit', '0'), choices = facefusion.choices.system_memory_limit_range, metavar = create_metavar(facefusion.choices.system_memory_limit_range))
-	job_store.register_job_keys([ 'video_memory_strategy', 'system_memory_limit' ])
+	#group_memory = program.add_argument_group('memory')
+	#group_memory.add_argument('--video-memory-strategy', help = wording.get('help.video_memory_strategy'), default = config.get_str_value('memory.video_memory_strategy', 'strict'), choices = facefusion.choices.video_memory_strategies)
+	#group_memory.add_argument('--system-memory-limit', help = wording.get('help.system_memory_limit'), type = int, default = config.get_int_value('memory.system_memory_limit', '0'), choices = facefusion.choices.system_memory_limit_range, metavar = create_metavar(facefusion.choices.system_memory_limit_range))
+	#job_store.register_job_keys([ 'video_memory_strategy', 'system_memory_limit' ])
 	# face analyser
 	group_face_analyser = program.add_argument_group('face analyser')
 	group_face_analyser.add_argument('--face-detector-model', help = wording.get('help.face_detector_model'), default = config.get_str_value('face_analyser.face_detector_model', 'yoloface'), choices = facefusion.choices.face_detector_set.keys())

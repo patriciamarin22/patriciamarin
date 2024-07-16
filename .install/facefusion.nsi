@@ -150,8 +150,8 @@ SectionEnd
 
 Section 'Create Run Batch'
 	SetOutPath $INSTDIR
-	FileOpen $0 run.bat w
-	FileWrite $0 '@echo off && conda activate facefusion && python run.py %*'
+	FileOpen $0 facefusion.bat w
+	FileWrite $0 '@echo off && conda activate facefusion && python facefusion.py %*'
 	FileClose $0
 SectionEnd
 
@@ -159,11 +159,11 @@ Section 'Register The Application'
 	DetailPrint 'Register The Application'
 
 	CreateDirectory $SMPROGRAMS\FaceFusion
-	CreateShortcut '$SMPROGRAMS\FaceFusion\FaceFusion.lnk' $INSTDIR\run.bat '--open-browser' $INSTDIR\.install\facefusion.ico
-	CreateShortcut '$SMPROGRAMS\FaceFusion\FaceFusion Benchmark.lnk' $INSTDIR\run.bat '--ui-layouts benchmark --open-browser' $INSTDIR\.install\facefusion.ico
-	CreateShortcut '$SMPROGRAMS\FaceFusion\FaceFusion Webcam.lnk' $INSTDIR\run.bat '--ui-layouts webcam --open-browser' $INSTDIR\.install\facefusion.ico
+	CreateShortcut '$SMPROGRAMS\FaceFusion\FaceFusion.lnk' $INSTDIR\facefusion.bat '--open-browser' $INSTDIR\.install\facefusion.ico
+	CreateShortcut '$SMPROGRAMS\FaceFusion\FaceFusion Benchmark.lnk' $INSTDIR\facefusion.bat '--ui-layouts benchmark --open-browser' $INSTDIR\.install\facefusion.ico
+	CreateShortcut '$SMPROGRAMS\FaceFusion\FaceFusion Webcam.lnk' $INSTDIR\facefusion.bat '--ui-layouts webcam --open-browser' $INSTDIR\.install\facefusion.ico
 
-	CreateShortcut $DESKTOP\FaceFusion.lnk $INSTDIR\run.bat '--open-browser' $INSTDIR\.install\facefusion.ico
+	CreateShortcut $DESKTOP\FaceFusion.lnk $INSTDIR\facefusion.bat '--open-browser' $INSTDIR\.install\facefusion.ico
 
 	WriteUninstaller $INSTDIR\Uninstall.exe
 

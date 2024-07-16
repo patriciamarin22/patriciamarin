@@ -4,6 +4,7 @@ import os
 import subprocess
 
 os.environ['PIP_BREAK_SYSTEM_PACKAGES'] = '1'
+os.environ['SYSTEM_VERSION_COMPAT'] = '0'
 subprocess.call([ 'pip', 'install', 'inquirer', '-q' ])
 
 from facefusion import installer
