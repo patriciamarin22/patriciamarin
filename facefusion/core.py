@@ -2,7 +2,7 @@ import shutil
 import signal
 import sys
 import warnings
-from argparse import ArgumentParser, HelpFormatter
+from argparse import ArgumentParser, HelpFormatter, _ArgumentGroup
 from time import sleep, time
 
 import numpy
@@ -49,30 +49,91 @@ def cli() -> None:
 def create_program() -> ArgumentParser:
 	program = ArgumentParser(formatter_class = lambda prog: HelpFormatter(prog, max_help_position = 200), add_help = False)
 	# general
-	program.add_argument('-c', '--config-path', help = wording.get('help.config_path'), dest = 'config_path', default = 'facefusion.ini')
+	program.add_argument('-v', '--version', version = metadata.get('name') + ' ' + metadata.get('version'), action = 'version')
+	program.add_argument('-c', '--config-path', help = wording.get('help.config_path'), default = 'facefusion.ini')
 	job_store.register_job_keys([ 'config-path' ])
 	apply_config_path(program)
-	program.add_argument('-s', '--source-paths', help = wording.get('help.source_paths'), action = 'append', dest = 'source_paths', default = config.get_str_list('general.source_paths'))
-	program.add_argument('-t', '--target-path', help = wording.get('help.target_path'), dest = 'target_path', default = config.get_str_value('general.target_path'))
-	program.add_argument('-o', '--output-path', help = wording.get('help.output_path'), dest = 'output_path', default = config.get_str_value('general.output_path'))
-	program.add_argument('-j', '--jobs-path', help = wording.get('help.jobs_path'), default = config.get_str_value('general.jobs_path', '.jobs'))
-	program.add_argument('-v', '--version', version = metadata.get('name') + ' ' + metadata.get('version'), action = 'version')
-	job_store.register_step_keys([ 'source_paths', 'target_path', 'output_path' ])
-	# misc
-	group_misc = program.add_argument_group('misc')
+	sub_program = program.add_subparsers()
+	# run
+	run_command = sub_program.add_parser('run', parents = [ program ],formatter_class = program.formatter_class)
+	add_path_args(run_command)
+	# run:misc
+	group_misc = run_command.add_argument_group('misc')
 	group_misc.add_argument('--force-download', help = wording.get('help.force_download'), action = 'store_true', default = config.get_bool_value('misc.force_download'))
-	group_misc.add_argument('--skip-download', help = wording.get('help.skip_download'), action = 'store_true', default = config.get_bool_value('misc.skip_download'))
+	add_misc_args(group_misc)
 	group_misc.add_argument('--headless', help = wording.get('help.headless'), action = 'store_true', default = config.get_bool_value('misc.headless'))
-	group_misc.add_argument('--log-level', help = wording.get('help.log_level'), default = config.get_str_value('misc.log_level', 'info'), choices = logger.get_log_levels())
+	# run:execution
+	group_execution = run_command.add_argument_group('execution')
+	add_execution_args(group_execution)
+	# job-create
+	job_create_command = sub_program.add_parser('job-add-step', help = wording.get('help.job_add_step'), parents = [ program ], formatter_class = program.formatter_class)
+	job_create_command.add_argument('job_id', help = wording.get('help.job_id'), metavar = 'job_id')
+	add_path_args(job_create_command)
+	# job-run
+	job_run_command = sub_program.add_parser('job-run', help = wording.get('help.job_run'), parents = [ program ], formatter_class = program.formatter_class)
+	job_run_command.add_argument('job_id', help = wording.get('help.job_id'), metavar = 'job_id')
+	# job-run:misc
+	job_run_command_group_misc = job_run_command.add_argument_group('misc')
+	add_misc_args(job_run_command_group_misc)
+	# job-run:execution
+	job_run_command_group_execution = job_run_command.add_argument_group('execution')
+	add_execution_args(job_run_command_group_execution)
+	return ArgumentParser(parents = [ program ], formatter_class = program.formatter_class, add_help = True)
+
+
+def add_path_args(program : ArgumentParser) -> ArgumentParser:
+	program.add_argument('-s', '--source-paths', help = wording.get('help.source_paths'), action = 'append', default = config.get_str_list('general.source_paths'))
+	program.add_argument('-t', '--target-path', help = wording.get('help.target_path'), default = config.get_str_value('general.target_path'))
+	program.add_argument('-o', '--output-path', help = wording.get('help.output_path'), default = config.get_str_value('general.output_path'))
+	program.add_argument('-j', '--jobs-path', help=wording.get('help.jobs_path'), default = config.get_str_value('general.jobs_path', '.jobs'))
+	job_store.register_step_keys([ 'source_paths', 'target_path', 'output_path' ])
+	return program
+
+
+def add_misc_args(group : _ArgumentGroup) -> _ArgumentGroup:
+	group.add_argument('--skip-download', help = wording.get('help.skip_download'), action = 'store_true',default = config.get_bool_value('misc.skip_download'))
+	group.add_argument('--log-level', help = wording.get('help.log_level'), default = config.get_str_value('misc.log_level', 'info'), choices = logger.get_log_levels())
 	job_store.register_job_keys([ 'skip_download', 'log_level' ])
-	# execution
+	return group
+
+
+def add_execution_args(group : _ArgumentGroup) -> _ArgumentGroup:
 	execution_providers = get_execution_provider_choices()
-	group_execution = program.add_argument_group('execution')
-	group_execution.add_argument('--execution-device-id', help = wording.get('help.execution_device_id'), default = config.get_str_value('execution.execution_device_id', '0'))
-	group_execution.add_argument('--execution-providers', help = wording.get('help.execution_providers').format(choices = ', '.join(execution_providers)), default = config.get_str_list('execution.execution_providers', 'cpu'), choices = execution_providers, nargs = '+', metavar = 'EXECUTION_PROVIDERS')
-	group_execution.add_argument('--execution-thread-count', help = wording.get('help.execution_thread_count'), type = int, default = config.get_int_value('execution.execution_thread_count', '4'), choices = facefusion.choices.execution_thread_count_range, metavar = create_metavar(facefusion.choices.execution_thread_count_range))
-	group_execution.add_argument('--execution-queue-count', help = wording.get('help.execution_queue_count'), type = int, default = config.get_int_value('execution.execution_queue_count', '1'), choices = facefusion.choices.execution_queue_count_range, metavar = create_metavar(facefusion.choices.execution_queue_count_range))
+	group.add_argument('--execution-device-id', help = wording.get('help.execution_device_id'), default = config.get_str_value('execution.execution_device_id', '0'))
+	group.add_argument('--execution-providers', help = wording.get('help.execution_providers').format(choices = ', '.join(execution_providers)), default = config.get_str_list('execution.execution_providers', 'cpu'), choices = execution_providers, nargs = '+', metavar = 'EXECUTION_PROVIDERS')
+	group.add_argument('--execution-thread-count', help = wording.get('help.execution_thread_count'), type = int, default = config.get_int_value('execution.execution_thread_count', '4'), choices = facefusion.choices.execution_thread_count_range, metavar = create_metavar(facefusion.choices.execution_thread_count_range))
+	group.add_argument('--execution-queue-count', help = wording.get('help.execution_queue_count'), type = int, default = config.get_int_value('execution.execution_queue_count', '1'), choices = facefusion.choices.execution_queue_count_range, metavar = create_metavar(facefusion.choices.execution_queue_count_range))
 	job_store.register_job_keys([ 'execution_device_id', 'execution_providers', 'execution_thread_count', 'execution_queue_count' ])
+	return group
+
+
+def _create_program() -> ArgumentParser:
+	program = ArgumentParser(formatter_class = lambda prog: HelpFormatter(prog, max_help_position = 200), add_help = False)
+	# general
+	#program.add_argument('-c', '--config-path', help = wording.get('help.config_path'), dest = 'config_path', default = 'facefusion.ini')
+	#job_store.register_job_keys([ 'config-path' ])
+	#apply_config_path(program)
+	#program.add_argument('-s', '--source-paths', help = wording.get('help.source_paths'), action = 'append', dest = 'source_paths', default = config.get_str_list('general.source_paths'))
+	#program.add_argument('-t', '--target-path', help = wording.get('help.target_path'), dest = 'target_path', default = config.get_str_value('general.target_path'))
+	#program.add_argument('-o', '--output-path', help = wording.get('help.output_path'), dest = 'output_path', default = config.get_str_value('general.output_path'))
+	#program.add_argument('-j', '--jobs-path', help = wording.get('help.jobs_path'), default = config.get_str_value('general.jobs_path', '.jobs'))
+	#program.add_argument('-v', '--version', version = metadata.get('name') + ' ' + metadata.get('version'), action = 'version')
+	#job_store.register_step_keys([ 'source_paths', 'target_path', 'output_path' ])
+	# misc
+	#group_misc = program.add_argument_group('misc')
+	#group_misc.add_argument('--force-download', help = wording.get('help.force_download'), action = 'store_true', default = config.get_bool_value('misc.force_download'))
+	#group_misc.add_argument('--skip-download', help = wording.get('help.skip_download'), action = 'store_true', default = config.get_bool_value('misc.skip_download'))
+	#group_misc.add_argument('--headless', help = wording.get('help.headless'), action = 'store_true', default = config.get_bool_value('misc.headless'))
+	#group_misc.add_argument('--log-level', help = wording.get('help.log_level'), default = config.get_str_value('misc.log_level', 'info'), choices = logger.get_log_levels())
+	#job_store.register_job_keys([ 'skip_download', 'log_level' ])
+	# execution
+	#execution_providers = get_execution_provider_choices()
+	#group_execution = program.add_argument_group('execution')
+	#group_execution.add_argument('--execution-device-id', help = wording.get('help.execution_device_id'), default = config.get_str_value('execution.execution_device_id', '0'))
+	#group_execution.add_argument('--execution-providers', help = wording.get('help.execution_providers').format(choices = ', '.join(execution_providers)), default = config.get_str_list('execution.execution_providers', 'cpu'), choices = execution_providers, nargs = '+', metavar = 'EXECUTION_PROVIDERS')
+	#group_execution.add_argument('--execution-thread-count', help = wording.get('help.execution_thread_count'), type = int, default = config.get_int_value('execution.execution_thread_count', '4'), choices = facefusion.choices.execution_thread_count_range, metavar = create_metavar(facefusion.choices.execution_thread_count_range))
+	#group_execution.add_argument('--execution-queue-count', help = wording.get('help.execution_queue_count'), type = int, default = config.get_int_value('execution.execution_queue_count', '1'), choices = facefusion.choices.execution_queue_count_range, metavar = create_metavar(facefusion.choices.execution_queue_count_range))
+	#job_store.register_job_keys([ 'execution_device_id', 'execution_providers', 'execution_thread_count', 'execution_queue_count' ])
 	# memory
 	group_memory = program.add_argument_group('memory')
 	group_memory.add_argument('--video-memory-strategy', help = wording.get('help.video_memory_strategy'), default = config.get_str_value('memory.video_memory_strategy', 'strict'), choices = facefusion.choices.video_memory_strategies)

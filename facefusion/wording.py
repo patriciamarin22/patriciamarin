@@ -159,6 +159,7 @@ WORDING : Dict[str, Any] =\
 		'ui_layouts': 'launch a single or multiple UI layouts (choices: {choices}, ...)',
 		'ui_workflow': 'choose the ui workflow',
 		# job manager
+		'job_id': 'specify the job id',
 		'job_create': 'create a drafted job',
 		'job_submit': 'submit a drafted job to become a queued job',
 		'job_submit_all': 'submit all drafted jobs to become a queued jobs',
