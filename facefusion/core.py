@@ -63,27 +63,33 @@ def create_program() -> ArgumentParser:
 	add_misc_args(group_misc)
 	group_misc.add_argument('--headless', help = wording.get('help.headless'), action = 'store_true', default = config.get_bool_value('misc.headless'))
 	# run:execution
-	run_command_group_execution = run_command.add_argument_group('execution')
-	add_execution_args(run_command_group_execution)
+	run_group_execution = run_command.add_argument_group('execution')
+	add_execution_args(run_group_execution)
 	# run:memory
-	run_command_group_memory = run_command.add_argument_group('memory')
-	add_memeory_args(run_command_group_memory)
-	# job-create
+	run_group_memory = run_command.add_argument_group('memory')
+	add_memory_args(run_group_memory)
+	# run:face-analyser
+	run_group_face_analyser = run_command.add_argument_group('face analyser')
+	add_face_analyser_args(run_command, run_group_face_analyser)
+	# job-add-step
 	job_create_command = sub_program.add_parser('job-add-step', help = wording.get('help.job_add_step'), parents = [ program ], formatter_class = program.formatter_class)
 	job_create_command.add_argument('job_id', help = wording.get('help.job_id'), metavar = 'job_id')
 	add_path_args(job_create_command)
+	# job-add-step:face-analyser
+	job_create_command_face_analyser = job_create_command.add_argument_group('face analyser')
+	add_face_analyser_args(job_create_command, job_create_command_face_analyser)
 	# job-run
 	job_run_command = sub_program.add_parser('job-run', help = wording.get('help.job_run'), parents = [ program ], formatter_class = program.formatter_class)
 	job_run_command.add_argument('job_id', help = wording.get('help.job_id'), metavar = 'job_id')
 	# job-run:misc
-	job_run_command_group_misc = job_run_command.add_argument_group('misc')
-	add_misc_args(job_run_command_group_misc)
+	job_run_group_misc = job_run_command.add_argument_group('misc')
+	add_misc_args(job_run_group_misc)
 	# job-run:execution
-	job_run_command_group_execution = job_run_command.add_argument_group('execution')
-	add_execution_args(job_run_command_group_execution)
+	job_run_group_execution = job_run_command.add_argument_group('execution')
+	add_execution_args(job_run_group_execution)
 	# job-run:memory
-	job_run_command_group_memory = job_run_command.add_argument_group('memory')
-	add_memeory_args(job_run_command_group_memory)
+	job_run_group_memory = job_run_command.add_argument_group('memory')
+	add_memory_args(job_run_group_memory)
 	return ArgumentParser(parents = [ program ], formatter_class = program.formatter_class, add_help = True)
 
 
@@ -113,10 +119,20 @@ def add_execution_args(group : _ArgumentGroup) -> _ArgumentGroup:
 	return group
 
 
-def add_memeory_args(group : _ArgumentGroup) -> _ArgumentGroup:
+def add_memory_args(group : _ArgumentGroup) -> _ArgumentGroup:
 	group.add_argument('--video-memory-strategy', help = wording.get('help.video_memory_strategy'), default = config.get_str_value('memory.video_memory_strategy', 'strict'), choices = facefusion.choices.video_memory_strategies)
 	group.add_argument('--system-memory-limit', help = wording.get('help.system_memory_limit'), type = int, default = config.get_int_value('memory.system_memory_limit', '0'), choices = facefusion.choices.system_memory_limit_range, metavar = create_metavar(facefusion.choices.system_memory_limit_range))
 	job_store.register_job_keys([ 'video_memory_strategy', 'system_memory_limit' ])
+	return group
+
+
+def add_face_analyser_args(program : ArgumentParser, group : _ArgumentGroup) -> _ArgumentGroup:
+	group.add_argument('--face-detector-model', help = wording.get('help.face_detector_model'), default = config.get_str_value('face_analyser.face_detector_model', 'yoloface'), choices = facefusion.choices.face_detector_set.keys())
+	group.add_argument('--face-detector-size', help = wording.get('help.face_detector_size'), default = config.get_str_value('face_analyser.face_detector_size', '640x640'), choices = suggest_face_detector_choices(program))
+	group.add_argument('--face-detector-angles', help = wording.get('help.face_detector_angles'), type = int, default = config.get_int_list('face_analyser.face_detector_angles', '0'), choices = facefusion.choices.face_detector_angles, nargs = '+', metavar = 'FACE_DETECTOR_ANGLES')
+	group.add_argument('--face-detector-score', help = wording.get('help.face_detector_score'), type = float, default = config.get_float_value('face_analyser.face_detector_score', '0.5'), choices = facefusion.choices.face_detector_score_range, metavar = create_metavar(facefusion.choices.face_detector_score_range))
+	group.add_argument('--face-landmarker-score', help = wording.get('help.face_landmarker_score'), type = float, default = config.get_float_value('face_analyser.face_landmarker_score', '0.5'), choices = facefusion.choices.face_landmarker_score_range, metavar = create_metavar(facefusion.choices.face_landmarker_score_range))
+	job_store.register_step_keys([ 'face_detector_model', 'face_detector_angles', 'face_detector_size', 'face_detector_score', 'face_landmarker_score' ])
 	return group
 
 
@@ -153,13 +169,13 @@ def _create_program() -> ArgumentParser:
 	#group_memory.add_argument('--system-memory-limit', help = wording.get('help.system_memory_limit'), type = int, default = config.get_int_value('memory.system_memory_limit', '0'), choices = facefusion.choices.system_memory_limit_range, metavar = create_metavar(facefusion.choices.system_memory_limit_range))
 	#job_store.register_job_keys([ 'video_memory_strategy', 'system_memory_limit' ])
 	# face analyser
-	group_face_analyser = program.add_argument_group('face analyser')
-	group_face_analyser.add_argument('--face-detector-model', help = wording.get('help.face_detector_model'), default = config.get_str_value('face_analyser.face_detector_model', 'yoloface'), choices = facefusion.choices.face_detector_set.keys())
-	group_face_analyser.add_argument('--face-detector-size', help = wording.get('help.face_detector_size'), default = config.get_str_value('face_analyser.face_detector_size', '640x640'), choices = suggest_face_detector_choices(program))
-	group_face_analyser.add_argument('--face-detector-angles', help = wording.get('help.face_detector_angles'), type = int, default = config.get_int_list('face_analyser.face_detector_angles', '0'), choices = facefusion.choices.face_detector_angles, nargs = '+', metavar = 'FACE_DETECTOR_ANGLES')
-	group_face_analyser.add_argument('--face-detector-score', help = wording.get('help.face_detector_score'), type = float, default = config.get_float_value('face_analyser.face_detector_score', '0.5'), choices = facefusion.choices.face_detector_score_range, metavar = create_metavar(facefusion.choices.face_detector_score_range))
-	group_face_analyser.add_argument('--face-landmarker-score', help = wording.get('help.face_landmarker_score'), type = float, default = config.get_float_value('face_analyser.face_landmarker_score', '0.5'), choices = facefusion.choices.face_landmarker_score_range, metavar = create_metavar(facefusion.choices.face_landmarker_score_range))
-	job_store.register_step_keys([ 'face_detector_model', 'face_detector_angles', 'face_detector_size', 'face_detector_score', 'face_landmarker_score' ])
+	#group_face_analyser = program.add_argument_group('face analyser')
+	#group_face_analyser.add_argument('--face-detector-model', help = wording.get('help.face_detector_model'), default = config.get_str_value('face_analyser.face_detector_model', 'yoloface'), choices = facefusion.choices.face_detector_set.keys())
+	#group_face_analyser.add_argument('--face-detector-size', help = wording.get('help.face_detector_size'), default = config.get_str_value('face_analyser.face_detector_size', '640x640'), choices = suggest_face_detector_choices(program))
+	#group_face_analyser.add_argument('--face-detector-angles', help = wording.get('help.face_detector_angles'), type = int, default = config.get_int_list('face_analyser.face_detector_angles', '0'), choices = facefusion.choices.face_detector_angles, nargs = '+', metavar = 'FACE_DETECTOR_ANGLES')
+	#group_face_analyser.add_argument('--face-detector-score', help = wording.get('help.face_detector_score'), type = float, default = config.get_float_value('face_analyser.face_detector_score', '0.5'), choices = facefusion.choices.face_detector_score_range, metavar = create_metavar(facefusion.choices.face_detector_score_range))
+	#group_face_analyser.add_argument('--face-landmarker-score', help = wording.get('help.face_landmarker_score'), type = float, default = config.get_float_value('face_analyser.face_landmarker_score', '0.5'), choices = facefusion.choices.face_landmarker_score_range, metavar = create_metavar(facefusion.choices.face_landmarker_score_range))
+	#job_store.register_step_keys([ 'face_detector_model', 'face_detector_angles', 'face_detector_size', 'face_detector_score', 'face_landmarker_score' ])
 	# face selector
 	group_face_selector = program.add_argument_group('face selector')
 	group_face_selector.add_argument('--face-selector-mode', help = wording.get('help.face_selector_mode'), default = config.get_str_value('face_selector.face_selector_mode', 'reference'), choices = facefusion.choices.face_selector_modes)
